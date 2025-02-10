@@ -1,0 +1,10 @@
+pygame>=2.1.0,<2.7.0
+stable-baselines3
+gym[all]~=0.26.2
+pybullet~=3.2.7
+
+keyboard~=0.13.5
+robot~=20071211
+setuptools~=68.2.0
+numpy~=2.2.2
+stable_baselines3~=2.5.0

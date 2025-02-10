@@ -1,0 +1,7 @@
+Metadata-Version: 2.2
+Name: LeoRover
+Version: 0.1
+Requires-Dist: stable-baselines3
+Requires-Dist: gym[all]
+Requires-Dist: pybullet
+Dynamic: requires-dist
