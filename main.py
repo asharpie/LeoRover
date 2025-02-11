@@ -327,6 +327,84 @@ def shortest_distance_to_segment(x0, y0, x1, y1, x2, y2):
 
     return distance
 
+#robot position=x0,y0
+#cos(yaw) (x element of rover orientation)=dx
+#sin(yaw) (y element of rover orientation)=dx
+#start point of line segment=x1,y1
+#end point of line segment=x2,y2
+def shortest_angle_to_segment(x0, y0, dx, dy, x1, y1, x2, y2):
+    """
+    Calculate the smallest angle between the rover's facing direction and the vector
+    representing the line segment joining two points.
+
+    x0, y0: Rover's current position
+    dx, dy: Rover's normalized facing direction vector
+    x1, y1: Start point of the line segment
+    x2, y2: End point of the line segment
+    """
+    # Vector representing the robot's orientation
+    robotDirX = dx
+    robotDirY = dy
+
+    # Vector representing the line segment
+    lineVectorX = x2 - x1
+    lineVectorY = y2 - y1
+
+    # Normalize the line segment vector
+    lineMag = math.sqrt(lineVectorX ** 2 + lineVectorY ** 2)
+    if lineMag == 0:
+        raise ValueError("The line segment is a point, not a valid segment.")
+
+    lineVectorX /= lineMag  # Normalize line vector
+    lineVectorY /= lineMag
+
+    # Normalize the robot's direction vector
+    robotMag = math.sqrt(robotDirX ** 2 + robotDirY ** 2)
+    if robotMag == 0:
+        raise ValueError("The robot's direction vector cannot be zero.")
+
+    robotDirX /= robotMag  # Normalize robot direction
+    robotDirY /= robotMag
+
+    # Compute the dot product
+    dotProduct = robotDirX * lineVectorX + robotDirY * lineVectorY
+
+    # Clamp dotProduct to avoid floating point issues
+    clampedDotProduct = max(-1.0, min(1.0, dotProduct))
+
+    # Compute the angle (in radians)
+    angle = math.acos(clampedDotProduct)
+
+    # Get the sign of the angle using the cross product
+    crossProduct = robotDirX * lineVectorY - robotDirY * lineVectorX
+    if crossProduct < 0:
+        angle = -angle  # Negative angle indicates clockwise direction
+
+    # Convert the angle to degrees
+    angle_degrees = math.degrees(angle)
+
+    return angle_degrees  # Return the angle in degrees
+
+
+def calculate_distance_to_point(point_coordinates):
+    """
+    Calculate the Euclidean distance from the robot's current position to a specific point.
+
+    :param point_coordinates: Tuple (x, y, z) of the target point's coordinates
+    :return: Euclidean distance to the point
+    """
+    # Get the robot's current position
+    robot_position = get_robot_position()
+
+    # Calculate Euclidean distance
+    distance = math.sqrt(
+        (robot_position[0] - point_coordinates[0]) ** 2 +
+        (robot_position[1] - point_coordinates[1]) ** 2 +
+        (robot_position[2] - point_coordinates[2]) ** 2
+    )
+
+    return distance
+
 
 def capture_camera_data():
     """
@@ -420,28 +498,57 @@ keyboard.block_key('w')
 keyboard.block_key('a')
 keyboard.block_key('s')
 counter = 0
+shortest_distances = [0,0,0]
+relative_angles = [0,0,0]
+point_distances = [0,0,0]
 print(point_coordinates[0],point_coordinates[1],point_coordinates[2],point_coordinates[3])
+point_state = 1
+#robot position=x0,y0
+#cos(yaw) (x element of rover orientation)=dx
+#sin(yaw) (y element of rover orientation)=dx
+#start point of line segment=x1,y1
+#end point of line segment=x2,y2
 while p.isConnected():
+    dx=math.cos(get_robot_yaw())
+    dy=math.sin(get_robot_yaw())
     robot_x = get_robot_position()[0]
     robot_y = get_robot_position()[1]
+    relative_angles[0]=shortest_angle_to_segment(robot_x, robot_y, dx, dy, point_coordinates[0][0], point_coordinates[0][1],point_coordinates[1][0], point_coordinates[1][1])
+    relative_angles[1]=shortest_angle_to_segment(robot_x, robot_y, dx, dy, point_coordinates[1][0],point_coordinates[1][1], point_coordinates[2][0],point_coordinates[2][1])
+    relative_angles[2]=(robot_x, robot_y, point_coordinates[2][0], point_coordinates[2][1],point_coordinates[3][0], point_coordinates[3][1])
+    shortest_distances[0]=shortest_distance_to_segment(robot_x, robot_y, point_coordinates[0][0], point_coordinates[0][1],point_coordinates[1][0], point_coordinates[1][1])
+    shortest_distances[1]=shortest_distance_to_segment(robot_x, robot_y, point_coordinates[1][0], point_coordinates[1][1],point_coordinates[2][0], point_coordinates[2][1])
+    shortest_distances[2]=(robot_x, robot_y, dx, dy, point_coordinates[2][0], point_coordinates[2][1],point_coordinates[3][0], point_coordinates[3][1])
+    point_distances[0]=calculate_distance_to_point(point_coordinates[1])
+    point_distances[1]=calculate_distance_to_point(point_coordinates[2])
+    point_distances[2]=calculate_distance_to_point(point_coordinates[3])
     if abs(robot_x - point_coordinates[1][0]) <= 0.1 and abs(robot_y - point_coordinates[1][1]) <= 0.1:
         touched_points[0] = True
+        point_state = 2
     if touched_points[0]:
         if abs(robot_x - point_coordinates[2][0]) <= 0.1 and abs(robot_y - point_coordinates[2][1]) <= 0.1:
             touched_points[1] = True
+            point_state = 3
     if touched_points[1]:
         if abs(robot_x - point_coordinates[3][0]) <= 0.1 and abs(robot_y - point_coordinates[3][1]) <= 0.1:
             touched_points[2] = True
+            point_state = 0
     if distance_counter % 40 == 0:
         if touched_points[0]:
             if touched_points[1]:
                 if not touched_points[2]:
-                    print("Distance to segment 3: " + str(
-                        shortest_distance_to_segment(robot_x, robot_y, point_coordinates[2][0], point_coordinates[2][1],point_coordinates[3][0], point_coordinates[3][1])))
+                    print("Angle to segment 3: " + str(relative_angles[2]))
+                    print("Distance to segment 3: " + str(shortest_distances[2]))
+                    print("Distance to point 3: " + str(point_distances[2]))
             else:
-                print("Distance to segment 2: " + str(shortest_distance_to_segment(robot_x, robot_y, point_coordinates[1][0], point_coordinates[1][1],point_coordinates[2][0], point_coordinates[2][1])))
+                print("Angle to segment 2: " + str(relative_angles[1]))
+                print("Distance to segment 2: " + str(shortest_distances[1]))
+                print("Distance to point 2: " + str(point_distances[1]))
         else:
-            print("Distance to segment 1: " + str(shortest_distance_to_segment(robot_x, robot_y, point_coordinates[0][0], point_coordinates[0][1],point_coordinates[1][0], point_coordinates[1][1])))
+            print("Angle to segment 1: " + str(relative_angles[0]))
+            print("Distance to segment 1: " + str(shortest_distances[0]))
+            print("Distance to point 1: " + str(point_distances[0]))
+
 
     distance_counter += 1
     if keyboard.is_pressed('w'):
