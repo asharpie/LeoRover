@@ -33,7 +33,8 @@ right_wheel_indices = []
 numHeightfieldRows = 512
 numHeightfieldColumns = 512
 point_coordinates = []
-touched_points = [False,False,False]
+NUMBER_OF_POINTS = 10
+touched_points = [False] * NUMBER_OF_POINTS
 
 # Camera settings
 camera_distance = 3  # Distance from the camera to the target
@@ -190,9 +191,8 @@ def get_height(x, y):
         return 0.0  # Fallback height if no hit
 
 def create_points():
-    point_coordinates.append((0, 0, 0))
-    for i in range(3):
-
+    point_coordinates.append((0,0,0))
+    for i in range(NUMBER_OF_POINTS):
         xCord = random.random()*10*random.choice([-1,1])
         yCord = random.random()*10*random.choice([-1,1])
         zCord = get_height(xCord, yCord)
@@ -201,10 +201,8 @@ def create_points():
     return point_coordinates
 
 def create_path():
-    print(point_coordinates[0],point_coordinates[1],point_coordinates[2],point_coordinates[3])
-    p.addUserDebugLine(point_coordinates[0], point_coordinates[1], lineColorRGB=[1, 0, 0], lineWidth=2)
-    p.addUserDebugLine(point_coordinates[1], point_coordinates[2], lineColorRGB=[1, 0, 0], lineWidth=2)
-    p.addUserDebugLine(point_coordinates[2], point_coordinates[3], lineColorRGB=[1, 0, 0], lineWidth=2)
+    for i in range(len(point_coordinates) - 1):
+        p.addUserDebugLine(point_coordinates[i], point_coordinates[i + 1], lineColorRGB=[1, 0, 0], lineWidth=2)
 
 def get_robot_position():
     """
@@ -498,10 +496,10 @@ keyboard.block_key('w')
 keyboard.block_key('a')
 keyboard.block_key('s')
 counter = 0
-shortest_distances = [0,0,0]
-relative_angles = [0,0,0]
-point_distances = [0,0,0]
-print(point_coordinates[0],point_coordinates[1],point_coordinates[2],point_coordinates[3])
+shortest_distances = [0] * (NUMBER_OF_POINTS - 1)
+relative_angles = [0] * (NUMBER_OF_POINTS - 1)
+point_distances = [0] * (NUMBER_OF_POINTS - 1)
+print("Point Coordinates: ", point_coordinates)
 point_state = 1
 #robot position=x0,y0
 #cos(yaw) (x element of rover orientation)=dx
@@ -513,41 +511,28 @@ while p.isConnected():
     dy=math.sin(get_robot_yaw())
     robot_x = get_robot_position()[0]
     robot_y = get_robot_position()[1]
-    relative_angles[0]=shortest_angle_to_segment(robot_x, robot_y, dx, dy, point_coordinates[0][0], point_coordinates[0][1],point_coordinates[1][0], point_coordinates[1][1])
-    relative_angles[1]=shortest_angle_to_segment(robot_x, robot_y, dx, dy, point_coordinates[1][0],point_coordinates[1][1], point_coordinates[2][0],point_coordinates[2][1])
-    relative_angles[2]=(robot_x, robot_y, point_coordinates[2][0], point_coordinates[2][1],point_coordinates[3][0], point_coordinates[3][1])
-    shortest_distances[0]=shortest_distance_to_segment(robot_x, robot_y, point_coordinates[0][0], point_coordinates[0][1],point_coordinates[1][0], point_coordinates[1][1])
-    shortest_distances[1]=shortest_distance_to_segment(robot_x, robot_y, point_coordinates[1][0], point_coordinates[1][1],point_coordinates[2][0], point_coordinates[2][1])
-    shortest_distances[2]=(robot_x, robot_y, dx, dy, point_coordinates[2][0], point_coordinates[2][1],point_coordinates[3][0], point_coordinates[3][1])
-    point_distances[0]=calculate_distance_to_point(point_coordinates[1])
-    point_distances[1]=calculate_distance_to_point(point_coordinates[2])
-    point_distances[2]=calculate_distance_to_point(point_coordinates[3])
-    if abs(robot_x - point_coordinates[1][0]) <= 0.1 and abs(robot_y - point_coordinates[1][1]) <= 0.1:
-        touched_points[0] = True
-        point_state = 2
-    if touched_points[0]:
-        if abs(robot_x - point_coordinates[2][0]) <= 0.1 and abs(robot_y - point_coordinates[2][1]) <= 0.1:
-            touched_points[1] = True
-            point_state = 3
-    if touched_points[1]:
-        if abs(robot_x - point_coordinates[3][0]) <= 0.1 and abs(robot_y - point_coordinates[3][1]) <= 0.1:
-            touched_points[2] = True
-            point_state = 0
-    if distance_counter % 40 == 0:
-        if touched_points[0]:
-            if touched_points[1]:
-                if not touched_points[2]:
-                    print("Angle to segment 3: " + str(relative_angles[2]))
-                    print("Distance to segment 3: " + str(shortest_distances[2]))
-                    print("Distance to point 3: " + str(point_distances[2]))
+    for i in range(NUMBER_OF_POINTS - 1):
+        relative_angles[i] = shortest_angle_to_segment(robot_x, robot_y, dx, dy, point_coordinates[i][0], point_coordinates[i][1], point_coordinates[i + 1][0], point_coordinates[i + 1][1])
+        shortest_distances[i] = shortest_distance_to_segment(robot_x, robot_y, point_coordinates[i][0], point_coordinates[i][1], point_coordinates[i + 1][0], point_coordinates[i + 1][1])
+    for i in range(1, NUMBER_OF_POINTS):
+        point_distances[i - 1] = calculate_distance_to_point(point_coordinates[i])
+
+    for i in range(1, NUMBER_OF_POINTS):
+        if abs(robot_x - point_coordinates[i][0]) <= 0.1 and abs(robot_y - point_coordinates[i][1]) <= 0.1:
+            touched_points[i - 1] = True
+            if i < NUMBER_OF_POINTS - 1:
+                point_state = i + 1
             else:
-                print("Angle to segment 2: " + str(relative_angles[1]))
-                print("Distance to segment 2: " + str(shortest_distances[1]))
-                print("Distance to point 2: " + str(point_distances[1]))
-        else:
-            print("Angle to segment 1: " + str(relative_angles[0]))
-            print("Distance to segment 1: " + str(shortest_distances[0]))
-            print("Distance to point 1: " + str(point_distances[0]))
+                point_state = 0
+            break
+
+    if distance_counter % 40 == 0:
+        for i in range(NUMBER_OF_POINTS - 1):
+            if not touched_points[i]:
+                print(f"Angle to segment {i + 1}: " + str(relative_angles[i]))
+                print(f"Distance to segment {i + 1}: " + str(shortest_distances[i]))
+                print(f"Distance to point {i + 1}: " + str(point_distances[i]))
+                break
 
 
     distance_counter += 1
@@ -572,7 +557,6 @@ while p.isConnected():
 
 
     # Break after 10 seconds of simulation
-
 # Disconnect from the simulation
 p.disconnect()
 
